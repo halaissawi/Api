@@ -18,13 +18,12 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 const allowedOrigins = [
-  "https://link-me-client-ashen.vercel.app",
-  "https://link-me-dashboard.vercel.app",
-  "http://localhost:5173", // For local development
-  "http://localhost:3000", // For local development
+  "http://localhost:5173",
+  "http://localhost:5174",
   process.env.CLIENT_URL,
   process.env.DASHBOARD_URL,
 ].filter(Boolean);
+
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
@@ -40,11 +39,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// Add request logging
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.get("origin")}`);
-  next();
-});
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
