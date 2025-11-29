@@ -18,8 +18,8 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
+  "https://link-me-client-ashen.vercel.app",
+  "https://link-me-dashboard.vercel.app",
   process.env.CLIENT_URL,
   process.env.DASHBOARD_URL,
 ].filter(Boolean);
