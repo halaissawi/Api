@@ -26,10 +26,7 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, Postman, or same-origin)
     if (!origin) return callback(null, true);
-
-    // Check if origin is in allowed list
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -73,6 +70,31 @@ app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
 
-app.listen(PORT, () => {
+// ADD THESE ERROR HANDLERS ↓↓↓
+
+// Catch unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  // Don't exit - just log it
+});
+
+// Catch uncaught exceptions
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
+  // Don't exit - just log it
+});
+
+// Handle SIGTERM gracefully
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully");
+  server.close(() => {
+    console.log("Server closed");
+    process.exit(0);
+  });
+});
+
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
 });
