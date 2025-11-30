@@ -232,7 +232,6 @@ const authController = {
         "📧 EMAIL_PASSWORD:",
         process.env.EMAIL_PASSWORD ? "EXISTS" : "MISSING"
       );
-      console.log("📧 EMAIL_FROM:", process.env.EMAIL_FROM);
 
       try {
         await sendOtpEmail(email, otp, firstName);
