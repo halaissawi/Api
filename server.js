@@ -15,10 +15,7 @@ const smartCardRoutes = require("./routes/index");
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = [
   "http://localhost:5173",
