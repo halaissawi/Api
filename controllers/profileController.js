@@ -64,6 +64,7 @@ exports.createProfile = async (req, res) => {
       aiBackground,
       template,
       socialLinks,
+      customDesignUrl, // 🆕 NEW: Accept custom design URL
     } = req.body;
 
     if (!name || !profileType) {
@@ -100,8 +101,6 @@ exports.createProfile = async (req, res) => {
         typeof socialLinks === "string" ? JSON.parse(socialLinks) : socialLinks;
     }
 
-    const urlRegex = /^https?:\/\//i; // must start with http:// or https://
-
     // Validate social links before creating the profile
     if (parsedLinks.length > 0) {
       for (const link of parsedLinks) {
@@ -110,10 +109,9 @@ exports.createProfile = async (req, res) => {
         const trimmedUrl = link.url ? link.url.trim() : "";
 
         if (link.platform === "whatsapp") {
-          // WhatsApp can be a link or phone number
           const whatsappUrlRegex =
             /^https?:\/\/(wa\.me|api\.whatsapp\.com)\/\d+$/i;
-          const phoneRegex = /^\+?\d{7,15}$/; // basic phone number check
+          const phoneRegex = /^\+?\d{7,15}$/;
 
           if (
             !whatsappUrlRegex.test(trimmedUrl) &&
@@ -125,12 +123,10 @@ exports.createProfile = async (req, res) => {
             });
           }
 
-          // Normalize phone number to wa.me link
           if (phoneRegex.test(trimmedUrl)) {
             link.url = `https://wa.me/${trimmedUrl.replace(/\D/g, "")}`;
           }
         } else if (link.platform === "email") {
-          // Validate email format
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(trimmedUrl)) {
             return res.status(400).json({
@@ -139,7 +135,6 @@ exports.createProfile = async (req, res) => {
             });
           }
         } else if (link.platform !== "phone") {
-          // Regular URL validation for other platforms
           const urlRegex = /^https?:\/\//i;
           if (!trimmedUrl || !urlRegex.test(trimmedUrl)) {
             return res.status(400).json({
@@ -164,6 +159,7 @@ exports.createProfile = async (req, res) => {
       aiPrompt: aiPrompt || null,
       aiBackground: aiBackground || null,
       template: template || "modern",
+      customDesignUrl: customDesignUrl || null, // 🆕 NEW: Store custom design
       slug,
       profileUrl,
       qrCodeUrl,
@@ -341,6 +337,7 @@ exports.updateProfile = async (req, res) => {
       aiBackground,
       template,
       isActive,
+      customDesignUrl, // 🆕 NEW: Accept custom design URL in updates
     } = req.body;
 
     const profile = await Profile.findOne({
@@ -388,6 +385,11 @@ exports.updateProfile = async (req, res) => {
       aiBackground:
         aiBackground !== undefined ? aiBackground : profile.aiBackground,
       template: template || profile.template,
+      // 🆕 NEW: Update custom design URL
+      customDesignUrl:
+        customDesignUrl !== undefined
+          ? customDesignUrl
+          : profile.customDesignUrl,
       slug,
       profileUrl,
       isActive: isActive !== undefined ? isActive : profile.isActive,
@@ -443,6 +445,10 @@ exports.deleteProfile = async (req, res) => {
     if (profile.aiBackground) {
       await deleteImage(profile.aiBackground);
     }
+    // 🆕 NEW: Delete custom design image
+    if (profile.customDesignUrl) {
+      await deleteImage(profile.customDesignUrl);
+    }
 
     await profile.destroy();
 
@@ -455,6 +461,121 @@ exports.deleteProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error deleting profile",
+      error: error.message,
+    });
+  }
+};
+
+// 🆕 NEW ENDPOINT: Upload Custom Card Design
+exports.uploadCustomDesign = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const profile = await Profile.findOne({
+      where: { id, userId },
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No design file uploaded",
+      });
+    }
+
+    // Delete old custom design if exists
+    if (profile.customDesignUrl) {
+      await deleteImage(profile.customDesignUrl);
+    }
+
+    // Update profile with new custom design URL
+    await profile.update({
+      customDesignUrl: req.file.path,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Custom design uploaded successfully",
+      data: {
+        customDesignUrl: req.file.path,
+      },
+    });
+  } catch (error) {
+    console.error("Error uploading custom design:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error uploading custom design",
+      error: error.message,
+    });
+  }
+};
+
+// 🆕 NEW ENDPOINT: Remove Custom Card Design
+exports.removeCustomDesign = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const profile = await Profile.findOne({
+      where: { id, userId },
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found",
+      });
+    }
+
+    if (profile.customDesignUrl) {
+      await deleteImage(profile.customDesignUrl);
+    }
+
+    await profile.update({
+      customDesignUrl: null,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Custom design removed successfully",
+    });
+  } catch (error) {
+    console.error("Error removing custom design:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error removing custom design",
+      error: error.message,
+    });
+  }
+};
+// 🆕 ADD THIS FUNCTION
+exports.uploadTempDesign = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
+    // File is already uploaded to Cloudinary by the uploadProfile middleware
+    res.status(200).json({
+      success: true,
+      message: "Design uploaded successfully",
+      url: req.file.path,
+    });
+  } catch (error) {
+    console.error("Error uploading temp design:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error uploading design",
       error: error.message,
     });
   }

@@ -192,13 +192,13 @@ module.exports = (sequelize, DataTypes) => {
         },
       },
       designMode: {
-        type: DataTypes.ENUM("manual", "ai"),
+        type: DataTypes.ENUM("manual", "ai", "custom"), // ✅ Added "custom"
         allowNull: false,
         defaultValue: "manual",
         validate: {
           isIn: {
-            args: [["manual", "ai"]],
-            msg: "Design mode must be either 'manual' or 'ai'",
+            args: [["manual", "ai", "custom"]], // ✅ Added "custom"
+            msg: "Design mode must be either 'manual', 'ai', or 'custom'",
           },
         },
       },
@@ -220,6 +220,12 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
         defaultValue: "modern",
+      },
+      // 🆕 NEW FIELD - Custom Card Design URL
+      customDesignUrl: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        comment: "URL of custom uploaded card design image",
       },
       slug: {
         type: DataTypes.STRING,

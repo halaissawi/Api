@@ -20,6 +20,21 @@ router.post(
 
 router.get("/", authMiddleware, profileController.getUserProfiles);
 
+// ✅ MOVE THIS BEFORE /:id ROUTE
+router.get(
+  "/all-visitors",
+  authMiddleware,
+  profileViewController.getAllVisitorContacts
+);
+// 🆕 ADD THIS ROUTE (must be BEFORE /:id routes)
+router.post(
+  "/upload-temp",
+  authMiddleware,
+  uploadProfile,
+  handleUploadError,
+  profileController.uploadTempDesign
+);
+
 router.get("/:id", authMiddleware, profileController.getProfileById);
 
 router.put(
@@ -31,6 +46,21 @@ router.put(
 );
 
 router.delete("/:id", authMiddleware, profileController.deleteProfile);
+
+// 🆕 NEW ROUTES: Custom Card Design Management
+router.post(
+  "/:id/custom-design",
+  authMiddleware,
+  uploadProfile,
+  handleUploadError,
+  profileController.uploadCustomDesign
+);
+
+router.delete(
+  "/:id/custom-design",
+  authMiddleware,
+  profileController.removeCustomDesign
+);
 
 router.patch(
   "/:id/toggle-status",

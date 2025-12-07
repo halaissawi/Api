@@ -833,6 +833,7 @@ exports.saveVisitorContact = async (req, res) => {
     const { country, city } = getGeoInfo(ip);
 
     const visitor = await ProfileVisitor.create({
+      userId: profile.userId, // ✅ ADD THIS
       profileId: profile.id,
       visitorEmail: email,
       visitorPhone: phone,
@@ -1000,6 +1001,58 @@ exports.getVisitorStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching visitor statistics",
+      error: error.message,
+    });
+  }
+};
+// Add this new function
+exports.getAllVisitorContacts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get all user's profiles (for display purposes)
+    const profiles = await Profile.findAll({
+      where: { userId },
+      attributes: ["id", "name", "profileType"],
+    });
+
+    // ✅ NOW SIMPLY QUERY BY USERID!
+    const visitors = await ProfileVisitor.findAll({
+      where: { userId },
+      include: [
+        {
+          model: Profile,
+          as: "profile",
+          attributes: ["id", "name", "profileType"],
+          required: false,
+        },
+      ],
+      order: [["submittedAt", "DESC"]],
+    });
+
+    const totalVisitors = visitors.length;
+    const contactsByProfile = {};
+
+    visitors.forEach((visitor) => {
+      const profileName = visitor.profile?.name || "Deleted Profile";
+      contactsByProfile[profileName] =
+        (contactsByProfile[profileName] || 0) + 1;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        visitors: visitors,
+        totalVisitors: totalVisitors,
+        profiles: profiles,
+        contactsByProfile: contactsByProfile,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching all visitor contacts:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch visitor contacts",
       error: error.message,
     });
   }

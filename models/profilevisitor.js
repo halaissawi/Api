@@ -7,6 +7,13 @@ module.exports = (sequelize, DataTypes) => {
       ProfileVisitor.belongsTo(models.Profile, {
         foreignKey: "profileId",
         as: "profile",
+        onDelete: "SET NULL",
+        onUpdate: "CASCADE",
+      });
+
+      ProfileVisitor.belongsTo(models.User, {
+        foreignKey: "userId",
+        as: "user",
         onDelete: "CASCADE",
         onUpdate: "CASCADE",
       });
@@ -21,12 +28,16 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      profileId: {
+      userId: {
         type: DataTypes.INTEGER,
         allowNull: false,
         validate: {
-          notNull: { msg: "Profile ID is required" },
+          notNull: { msg: "User ID is required" },
         },
+      },
+      profileId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
       visitorEmail: {
         type: DataTypes.STRING,
@@ -97,6 +108,7 @@ module.exports = (sequelize, DataTypes) => {
         },
       },
       indexes: [
+        { fields: ["userId"] },
         { fields: ["profileId"] },
         { fields: ["visitorEmail"] },
         { fields: ["submittedAt"] },
