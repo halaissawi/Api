@@ -425,6 +425,7 @@ exports.deleteProfile = async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
 
+    // Find the profile
     const profile = await Profile.findOne({
       where: { id, userId },
     });
@@ -436,6 +437,27 @@ exports.deleteProfile = async (req, res) => {
       });
     }
 
+    // ✅ CHECK IF PROFILE HAS ORDERS BEFORE ATTEMPTING DELETE
+    const { Order } = require("../models"); // Make sure Order is imported
+
+    const orderCount = await Order.count({
+      where: { profileId: id },
+    });
+
+    console.log(`Profile ${id} has ${orderCount} orders`);
+
+    if (orderCount > 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot delete profile with existing orders",
+        message: `This profile has ${orderCount} order(s). Physical cards have been distributed, so the profile cannot be deleted. You can still edit all information in your dashboard.`,
+        hasOrders: true,
+        orderCount: orderCount,
+      });
+    }
+
+    // Safe to delete - no orders exist
+    // Delete associated images
     if (profile.avatarUrl) {
       await deleteImage(profile.avatarUrl);
     }
@@ -445,11 +467,11 @@ exports.deleteProfile = async (req, res) => {
     if (profile.aiBackground) {
       await deleteImage(profile.aiBackground);
     }
-    // 🆕 NEW: Delete custom design image
     if (profile.customDesignUrl) {
       await deleteImage(profile.customDesignUrl);
     }
 
+    // Delete the profile
     await profile.destroy();
 
     res.status(200).json({
