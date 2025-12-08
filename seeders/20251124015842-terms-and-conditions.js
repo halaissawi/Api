@@ -3,15 +3,23 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const now = new Date();
+    // Check if the record already exists
+    const existingTerms = await queryInterface.sequelize.query(
+      `SELECT version FROM "TermsAndConditions" WHERE version = '1.0.0' LIMIT 1;`,
+      { type: Sequelize.QueryTypes.SELECT }
+    );
 
-    await queryInterface.bulkInsert(
-      "TermsAndConditions",
-      [
-        {
-          version: "1.0.0",
-          title: "Terms and Conditions",
-          content: `
+    // Only insert if it doesn't exist
+    if (existingTerms.length === 0) {
+      const now = new Date();
+
+      await queryInterface.bulkInsert(
+        "TermsAndConditions",
+        [
+          {
+            version: "1.0.0",
+            title: "Terms and Conditions",
+            content: `
 # Terms and Conditions
 
 **Effective Date:** ${now.toLocaleDateString()}
@@ -80,17 +88,21 @@ If you have any questions about these Terms, please contact us at support@exampl
 ---
 
 **Last Updated:** ${now.toLocaleDateString()}
-          `.trim(),
-          effectiveDate: now,
-          isActive: true,
-          lastModifiedBy: "System Administrator",
-          changesSummary: "Initial version of Terms and Conditions",
-          createdAt: now,
-          updatedAt: now,
-        },
-      ],
-      {}
-    );
+            `.trim(),
+            effectiveDate: now,
+            isActive: true,
+            lastModifiedBy: "System Administrator",
+            changesSummary: "Initial version of Terms and Conditions",
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        {}
+      );
+      console.log("✅ Terms and Conditions seeded successfully");
+    } else {
+      console.log("ℹ️ Terms and Conditions already exist, skipping...");
+    }
   },
 
   async down(queryInterface, Sequelize) {

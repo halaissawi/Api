@@ -3,15 +3,23 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const now = new Date();
+    // Check if the record already exists
+    const existingPolicy = await queryInterface.sequelize.query(
+      `SELECT version FROM "PrivacyPolicies" WHERE version = '1.0.0' LIMIT 1;`,
+      { type: Sequelize.QueryTypes.SELECT }
+    );
 
-    await queryInterface.bulkInsert(
-      "PrivacyPolicies",
-      [
-        {
-          version: "1.0.0",
-          title: "Privacy Policy",
-          content: `
+    // Only insert if it doesn't exist
+    if (existingPolicy.length === 0) {
+      const now = new Date();
+
+      await queryInterface.bulkInsert(
+        "PrivacyPolicies",
+        [
+          {
+            version: "1.0.0",
+            title: "Privacy Policy",
+            content: `
 # Privacy Policy
 
 **Effective Date:** ${now.toLocaleDateString()}
@@ -124,17 +132,21 @@ If you have any questions about this Privacy Policy, please contact us:
 ---
 
 **Last Updated:** ${now.toLocaleDateString()}
-          `.trim(),
-          effectiveDate: now,
-          isActive: true,
-          lastModifiedBy: "System Administrator",
-          changesSummary: "Initial version of Privacy Policy",
-          createdAt: now,
-          updatedAt: now,
-        },
-      ],
-      {}
-    );
+            `.trim(),
+            effectiveDate: now,
+            isActive: true,
+            lastModifiedBy: "System Administrator",
+            changesSummary: "Initial version of Privacy Policy",
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        {}
+      );
+      console.log("✅ Privacy Policy seeded successfully");
+    } else {
+      console.log("ℹ️ Privacy Policy already exists, skipping...");
+    }
   },
 
   async down(queryInterface, Sequelize) {
