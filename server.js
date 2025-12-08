@@ -11,6 +11,7 @@ const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const termsRoutes = require("./routes/termsAndConditionsRoutes");
 const privacyRoutes = require("./routes/privacyPolicyRoutes");
 const smartCardRoutes = require("./routes/index");
+const aiImageRoutes = require("./routes/aiImageRoutes"); // 🆕 NEW
 
 dotenv.config();
 
@@ -65,23 +66,20 @@ app.use("/api", smartCardRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/terms", termsRoutes);
 app.use("/api/privacy-policy", privacyRoutes);
+app.use("/api/ai", aiImageRoutes); // 🆕 NEW - Register AI route
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
 
-// ADD THESE ERROR HANDLERS ↓↓↓
-
 // Catch unhandled promise rejections
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
-  // Don't exit - just log it
 });
 
 // Catch uncaught exceptions
 process.on("uncaughtException", (error) => {
   console.error("Uncaught Exception:", error);
-  // Don't exit - just log it
 });
 
 // Handle SIGTERM gracefully
