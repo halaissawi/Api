@@ -107,7 +107,7 @@ passport.deserializeUser(async (id, done) => {
 // ==================== HELPER FUNCTIONS ====================
 
 const generateToken = (user) =>
-  jwt.sign({ id: user.id }, SECRET_KEY, { expiresIn: "2h" });
+  jwt.sign({ id: user.id }, SECRET_KEY, { expiresIn: "30d" });
 
 const generateRefreshToken = (user) =>
   jwt.sign({ id: user.id }, SECRET_KEY, { expiresIn: "7d" });
@@ -791,7 +791,7 @@ const authController = {
     passport.authenticate("google", { failureRedirect: "/login" }),
     async (req, res) => {
       const token = jwt.sign({ id: req.user.id }, SECRET_KEY, {
-        expiresIn: "2h",
+        expiresIn: "30d",
       });
 
       const refreshToken = generateRefreshToken(req.user);
@@ -818,7 +818,7 @@ const authController = {
     passport.authenticate("facebook", { failureRedirect: "/login" }),
     async (req, res) => {
       const token = jwt.sign({ id: req.user.id }, SECRET_KEY, {
-        expiresIn: "2h",
+        expiresIn: "30d",
       });
 
       const refreshToken = generateRefreshToken(req.user);

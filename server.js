@@ -11,8 +11,7 @@ const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const termsRoutes = require("./routes/termsAndConditionsRoutes");
 const privacyRoutes = require("./routes/privacyPolicyRoutes");
 const smartCardRoutes = require("./routes/index");
-const aiImageRoutes = require("./routes/aiImageRoutes"); // 🆕 NEW
-
+const aiRoutes = require("./routes/aiRoutes");
 dotenv.config();
 
 const app = express();
@@ -66,8 +65,7 @@ app.use("/api", smartCardRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/terms", termsRoutes);
 app.use("/api/privacy-policy", privacyRoutes);
-app.use("/api/ai", aiImageRoutes); // 🆕 NEW - Register AI route
-
+app.use("/api/ai", aiRoutes);
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
