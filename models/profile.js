@@ -192,13 +192,13 @@ module.exports = (sequelize, DataTypes) => {
         },
       },
       designMode: {
-        type: DataTypes.ENUM("manual", "ai", "custom"), // ✅ Added "custom"
+        type: DataTypes.ENUM("manual", "ai", "custom", "template"), // ✅ Add "template"
         allowNull: false,
         defaultValue: "manual",
         validate: {
           isIn: {
-            args: [["manual", "ai", "custom"]], // ✅ Added "custom"
-            msg: "Design mode must be either 'manual', 'ai', or 'custom'",
+            args: [["manual", "ai", "custom", "template"]], // ✅ Add "template"
+            msg: "Design mode must be either 'manual', 'ai', 'custom', or 'template'",
           },
         },
       },

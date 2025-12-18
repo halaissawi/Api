@@ -34,10 +34,9 @@ passport.use(
             lastName: null,
             email: profile.emails?.[0]?.value,
             role: "user",
-            isVerified: true, // Auto-verify OAuth users
+            isVerified: true,
           });
 
-          // Send welcome email to OAuth user
           sendTemplatedEmail(user.email, "welcome", user.firstName).catch(
             (error) => {
               console.error("Error sending welcome email:", error);
@@ -73,10 +72,9 @@ passport.use(
             lastName: null,
             email: profile.emails?.[0]?.value || `${profile.id}@facebook.com`,
             role: "user",
-            isVerified: true, // Auto-verify OAuth users
+            isVerified: true,
           });
 
-          // Send welcome email to OAuth user
           if (user.email && !user.email.includes("@facebook.com")) {
             sendTemplatedEmail(user.email, "welcome", user.firstName).catch(
               (error) => {
@@ -113,43 +111,15 @@ const generateRefreshToken = (user) =>
   jwt.sign({ id: user.id }, SECRET_KEY, { expiresIn: "7d" });
 
 /**
- * Password validation
+ * Password validation - SIMPLIFIED to only require 8+ characters
  */
 const validatePassword = (password) => {
   const minLength = 8;
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
 
   if (password.length < minLength) {
     return {
       isValid: false,
       message: "Password must be at least 8 characters long",
-    };
-  }
-  if (!hasUpperCase) {
-    return {
-      isValid: false,
-      message: "Password must contain at least one uppercase letter",
-    };
-  }
-  if (!hasLowerCase) {
-    return {
-      isValid: false,
-      message: "Password must contain at least one lowercase letter",
-    };
-  }
-  if (!hasNumber) {
-    return {
-      isValid: false,
-      message: "Password must contain at least one number",
-    };
-  }
-  if (!hasSpecialChar) {
-    return {
-      isValid: false,
-      message: "Password must contain at least one special character",
     };
   }
 
@@ -171,10 +141,10 @@ const authController = {
         dateOfBirth,
       } = req.body;
 
-      if (!firstName || !email || !password || !phoneNumber || !dateOfBirth) {
+      // UPDATED: Only required fields
+      if (!firstName || !lastName || !email || !password) {
         return res.status(400).json({
-          message:
-            "firstName, email, password, phoneNumber, and dateOfBirth are required",
+          message: "First name, last name, email, and password are required",
         });
       }
 
@@ -185,16 +155,25 @@ const authController = {
         });
       }
 
-      const dob = new Date(dateOfBirth);
-      if (isNaN(dob.getTime())) {
-        return res.status(400).json({ message: "Invalid dateOfBirth format" });
+      // UPDATED: Only validate dateOfBirth if provided
+      let dob = null;
+      if (dateOfBirth && dateOfBirth.trim() !== "") {
+        dob = new Date(dateOfBirth);
+        if (isNaN(dob.getTime())) {
+          return res
+            .status(400)
+            .json({ message: "Invalid date of birth format" });
+        }
       }
 
-      if (!/^\+?\d{7,15}$/.test(phoneNumber)) {
-        return res.status(400).json({
-          message:
-            "Invalid phone number format. Use digits only, optionally start with '+', length 7–15 digits.",
-        });
+      // UPDATED: Only validate phoneNumber if provided
+      if (phoneNumber && phoneNumber.trim() !== "") {
+        if (!/^\+?\d{7,15}$/.test(phoneNumber)) {
+          return res.status(400).json({
+            message:
+              "Invalid phone number format. Use digits only, optionally start with '+', length 7-15 digits.",
+          });
+        }
       }
 
       const userExists = await User.findOne({
@@ -212,7 +191,8 @@ const authController = {
         lastName: lastName ? lastName.trim() : null,
         email: email.trim(),
         password: password.trim(),
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber:
+          phoneNumber && phoneNumber.trim() !== "" ? phoneNumber.trim() : null,
         dateOfBirth: dob,
         isVerified: false,
         pendingEmail: null,
@@ -220,28 +200,16 @@ const authController = {
         otpExpires,
       });
 
-      // Send OTP email
       console.log("📧 Starting email send process...");
       console.log("📧 Email:", email);
       console.log("📧 OTP:", otp);
-      console.log(
-        "📧 EMAIL_USER:",
-        process.env.EMAIL_USER ? "EXISTS" : "MISSING"
-      );
-      console.log(
-        "📧 EMAIL_PASSWORD:",
-        process.env.EMAIL_PASSWORD ? "EXISTS" : "MISSING"
-      );
 
       try {
         await sendOtpEmail(email, otp, firstName);
         console.log("✅ OTP email sent successfully to:", email);
       } catch (error) {
         console.error("❌ CRITICAL: Email sending failed!");
-        console.error("Error name:", error.name);
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
-        console.error("Full error:", JSON.stringify(error, null, 2));
+        console.error("Error:", error.message);
       }
 
       return res.status(201).json({
@@ -264,7 +232,6 @@ const authController = {
 
       if (!user) return res.status(404).json({ message: "User not found" });
 
-      // Check if OTP has expired
       if (user.otpExpires && new Date() > new Date(user.otpExpires)) {
         return res.status(400).json({
           message: "OTP has expired. Please request a new one.",
@@ -285,7 +252,6 @@ const authController = {
       user.refreshToken = refreshToken;
       await user.save();
 
-      // Send welcome email after successful verification using template
       sendTemplatedEmail(user.email, "welcome", user.firstName).catch(
         (error) => {
           console.error("Error sending welcome email:", error);
@@ -316,12 +282,12 @@ const authController = {
 
       if (user.isVerified) {
         return res.status(400).json({
-          message: "Your account is already verified. No need to resend OTP.",
+          message: "Your account is already verified.",
         });
       }
 
       const otp = crypto.randomInt(100000, 999999).toString();
-      const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
       user.otp = otp;
       user.otpExpires = otpExpires;
@@ -351,7 +317,6 @@ const authController = {
         return res.status(400).json({ message: "Invalid credentials" });
       }
 
-      // Check if the user is verified
       if (!user.isVerified) {
         return res
           .status(400)
@@ -425,7 +390,6 @@ const authController = {
         });
       }
 
-      // Verify the refresh token
       let decoded;
       try {
         decoded = jwt.verify(refreshToken, SECRET_KEY);
@@ -435,7 +399,6 @@ const authController = {
         });
       }
 
-      // Find the user and verify the refresh token matches
       const user = await User.findOne({
         where: {
           id: decoded.id,
@@ -449,11 +412,9 @@ const authController = {
         });
       }
 
-      // Generate new tokens
       const newAccessToken = generateToken(user);
       const newRefreshToken = generateRefreshToken(user);
 
-      // Update the refresh token in database
       user.refreshToken = newRefreshToken;
       await user.save();
 
@@ -485,7 +446,6 @@ const authController = {
         });
       }
 
-      // Clear the refresh token from database
       const user = await User.findByPk(userId);
 
       if (user) {
@@ -514,10 +474,9 @@ const authController = {
         expiresIn: "1h",
       });
       user.resetPasswordToken = resetToken;
-      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+      user.resetPasswordExpires = Date.now() + 3600000;
       await user.save();
 
-      // Use the resetPassword template from emailTemplates
       const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
       const template = emailTemplates.resetPassword(
         user.firstName,
@@ -575,7 +534,6 @@ const authController = {
       user.resetPasswordExpires = null;
       await user.save();
 
-      // Send password change confirmation using notification template
       const message =
         "Your password has been successfully changed. If you didn't make this change, please contact our support team immediately.";
       const template = emailTemplates.notification(
@@ -603,12 +561,10 @@ const authController = {
     }
   },
 
-  // ==================== EMAIL CHANGE FUNCTIONALITY ====================
-
   async requestEmailChange(req, res) {
     try {
       const { newEmail } = req.body;
-      const userId = req.user.id; // Assuming you have auth middleware that sets req.user
+      const userId = req.user.id;
 
       if (!newEmail) {
         return res.status(400).json({
@@ -621,14 +577,12 @@ const authController = {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Check if new email is same as current email
       if (user.email === newEmail.trim()) {
         return res.status(400).json({
           message: "New email cannot be the same as current email",
         });
       }
 
-      // Check if new email is already taken by another user
       const emailExists = await User.findOne({
         where: {
           email: newEmail.trim(),
@@ -642,17 +596,14 @@ const authController = {
         });
       }
 
-      // Generate OTP for new email verification
       const otp = crypto.randomInt(100000, 999999).toString();
-      const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-      // Store pending email and OTP
       user.pendingEmail = newEmail.trim();
       user.otp = otp;
       user.otpExpires = otpExpires;
       await user.save();
 
-      // Send OTP to new email
       await sendOtpEmail(newEmail, otp, user.firstName);
 
       res.status(200).json({
@@ -670,7 +621,7 @@ const authController = {
   async verifyEmailChange(req, res) {
     try {
       const { otp } = req.body;
-      const userId = req.user.id; // Assuming you have auth middleware
+      const userId = req.user.id;
 
       const user = await User.findByPk(userId);
       if (!user) {
@@ -683,7 +634,6 @@ const authController = {
         });
       }
 
-      // Check if OTP has expired
       if (user.otpExpires && new Date() > new Date(user.otpExpires)) {
         return res.status(400).json({
           message: "OTP has expired. Please request a new one.",
@@ -694,7 +644,6 @@ const authController = {
         return res.status(400).json({ message: "Invalid OTP" });
       }
 
-      // Update email and clear pending email
       const oldEmail = user.email;
       user.email = user.pendingEmail;
       user.pendingEmail = null;
@@ -702,7 +651,6 @@ const authController = {
       user.otpExpires = null;
       await user.save();
 
-      // Send confirmation to old email
       const oldEmailMessage = `Your email address has been changed from ${oldEmail} to ${user.email}. If you didn't make this change, please contact our support team immediately.`;
       const oldEmailTemplate = emailTemplates.notification(
         user.firstName,
@@ -721,7 +669,6 @@ const authController = {
         console.error("Error sending email change notification:", error);
       });
 
-      // Send welcome message to new email
       const newEmailMessage = `Your email address has been successfully updated. You can now use ${user.email} to log in to your account.`;
       const newEmailTemplate = emailTemplates.notification(
         user.firstName,
@@ -755,7 +702,7 @@ const authController = {
 
   async cancelEmailChange(req, res) {
     try {
-      const userId = req.user.id; // Assuming you have auth middleware
+      const userId = req.user.id;
 
       const user = await User.findByPk(userId);
       if (!user) {
@@ -768,7 +715,6 @@ const authController = {
         });
       }
 
-      // Clear pending email and OTP
       user.pendingEmail = null;
       user.otp = null;
       user.otpExpires = null;
