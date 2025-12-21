@@ -41,6 +41,8 @@ exports.createOrder = async (req, res) => {
       cardTemplate: cardDesign.template || profile.template,
       cardDesignMode: cardDesign.designMode || profile.designMode,
       cardAiBackground: cardDesign.aiBackground || profile.aiBackground,
+      customDesignUrl:
+        cardDesign.uploadedImage || profile.customDesignUrl || null,
       paymentMethod: paymentMethod || "cash_on_delivery",
       totalAmount: totalAmount || 0,
       orderStatus: "pending",

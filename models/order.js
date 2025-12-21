@@ -196,6 +196,12 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      customDesignUrl: {
+        // 🆕 ADD THIS
+        type: DataTypes.TEXT,
+        allowNull: true,
+        comment: "User-uploaded custom design image (base64 or URL)",
+      },
 
       // Shipping Information
       shippingAddress: {

@@ -577,24 +577,30 @@ exports.removeCustomDesign = async (req, res) => {
     });
   }
 };
-// 🆕 ADD THIS FUNCTION
+// At the end of profileController.js, update uploadTempDesign:
+
 exports.uploadTempDesign = async (req, res) => {
   try {
+    console.log("📸 [UPLOAD TEMP] Request received");
+    console.log("📸 [UPLOAD TEMP] File:", req.file);
+
     if (!req.file) {
+      console.error("❌ [UPLOAD TEMP] No file in request");
       return res.status(400).json({
         success: false,
         message: "No file uploaded",
       });
     }
 
-    // File is already uploaded to Cloudinary by the uploadProfile middleware
+    console.log("✅ [UPLOAD TEMP] File uploaded to:", req.file.path);
+
     res.status(200).json({
       success: true,
       message: "Design uploaded successfully",
       url: req.file.path,
     });
   } catch (error) {
-    console.error("Error uploading temp design:", error);
+    console.error("❌ [UPLOAD TEMP] Error:", error);
     res.status(500).json({
       success: false,
       message: "Error uploading design",

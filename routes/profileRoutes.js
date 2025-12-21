@@ -10,23 +10,25 @@ const {
 const profileController = require("../controllers/profileController");
 const profileViewController = require("../controllers/profileViewController");
 
-router.post(
-  "/",
+// ============================================
+// 🔥 IMPORTANT: SPECIFIC ROUTES FIRST
+// ============================================
+
+// Dashboard summary (must be before /:id)
+router.get(
+  "/dashboard/summary",
   authMiddleware,
-  uploadProfile,
-  handleUploadError,
-  profileController.createProfile
+  profileController.getDashboardSummary
 );
 
-router.get("/", authMiddleware, profileController.getUserProfiles);
-
-// ✅ MOVE THIS BEFORE /:id ROUTE
+// All visitors (must be before /:id)
 router.get(
   "/all-visitors",
   authMiddleware,
   profileViewController.getAllVisitorContacts
 );
-// 🆕 ADD THIS ROUTE (must be BEFORE /:id routes)
+
+// 🆕 Upload temp design (must be before /:id)
 router.post(
   "/upload-temp",
   authMiddleware,
@@ -35,8 +37,35 @@ router.post(
   profileController.uploadTempDesign
 );
 
+// Public profile by slug (must be before /:id)
+router.get("/public/:slug", profileController.getProfileBySlug);
+
+// Public visitor contact (must be before /:id)
+router.post(
+  "/public/:slug/visitor-contact",
+  profileViewController.saveVisitorContact
+);
+
+// ============================================
+// STANDARD CRUD ROUTES
+// ============================================
+
+// Create profile
+router.post(
+  "/",
+  authMiddleware,
+  uploadProfile,
+  handleUploadError,
+  profileController.createProfile
+);
+
+// Get all user profiles
+router.get("/", authMiddleware, profileController.getUserProfiles);
+
+// Get profile by ID
 router.get("/:id", authMiddleware, profileController.getProfileById);
 
+// Update profile
 router.put(
   "/:id",
   authMiddleware,
@@ -45,9 +74,14 @@ router.put(
   profileController.updateProfile
 );
 
+// Delete profile
 router.delete("/:id", authMiddleware, profileController.deleteProfile);
 
-// 🆕 NEW ROUTES: Custom Card Design Management
+// ============================================
+// PROFILE-SPECIFIC ROUTES (with :id)
+// ============================================
+
+// Custom design management
 router.post(
   "/:id/custom-design",
   authMiddleware,
@@ -62,37 +96,28 @@ router.delete(
   profileController.removeCustomDesign
 );
 
+// Toggle profile status
 router.patch(
   "/:id/toggle-status",
   authMiddleware,
   profileController.toggleProfileStatus
 );
 
+// Analytics
 router.get(
   "/:id/analytics",
   authMiddleware,
   profileController.getProfileAnalytics
 );
 
+// Regenerate QR
 router.post(
   "/:id/regenerate-qr",
   authMiddleware,
   profileController.regenerateQRCode
 );
 
-router.get(
-  "/dashboard/summary",
-  authMiddleware,
-  profileController.getDashboardSummary
-);
-
-router.get("/public/:slug", profileController.getProfileBySlug);
-
-router.post(
-  "/public/:slug/visitor-contact",
-  profileViewController.saveVisitorContact
-);
-
+// Visitors
 router.get(
   "/:id/visitors",
   authMiddleware,
