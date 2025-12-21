@@ -182,6 +182,11 @@ class TermsAndConditionsController {
    * @route PUT /api/terms/:id
    * @access Admin
    */
+  /**
+   * Update an existing terms and conditions version
+   * @route PUT /api/terms/:id
+   * @access Admin
+   */
   static async updateVersion(req, res) {
     try {
       const { id } = req.params;
@@ -195,9 +200,13 @@ class TermsAndConditionsController {
         isActive,
       } = req.body;
 
+      console.log("📥 Received update request for ID:", id);
+      console.log("📝 Update data:", req.body);
+
       const terms = await TermsAndConditions.findByPk(id);
 
       if (!terms) {
+        console.error("❌ Terms not found with ID:", id);
         return res.status(404).json({
           success: false,
           message: `Terms and conditions with ID ${id} not found`,
@@ -209,16 +218,25 @@ class TermsAndConditionsController {
         await TermsAndConditions.update({ isActive: false }, { where: {} });
       }
 
+      // Prepare update object - only include fields that are provided
+      const updateData = {};
+
+      if (version !== undefined) updateData.version = version;
+      if (title !== undefined) updateData.title = title;
+      if (content !== undefined) updateData.content = content;
+      if (effectiveDate !== undefined) updateData.effectiveDate = effectiveDate;
+      if (lastModifiedBy !== undefined)
+        updateData.lastModifiedBy = lastModifiedBy;
+      if (changesSummary !== undefined)
+        updateData.changesSummary = changesSummary;
+      if (isActive !== undefined) updateData.isActive = isActive;
+
+      console.log("🔄 Updating with data:", updateData);
+
       // Update the terms
-      await terms.update({
-        ...(version && { version }),
-        ...(title && { title }),
-        ...(content && { content }),
-        ...(effectiveDate && { effectiveDate }),
-        ...(lastModifiedBy && { lastModifiedBy }),
-        ...(changesSummary !== undefined && { changesSummary }),
-        ...(isActive !== undefined && { isActive }),
-      });
+      await terms.update(updateData);
+
+      console.log("✅ Successfully updated terms");
 
       return res.status(200).json({
         success: true,
@@ -226,7 +244,7 @@ class TermsAndConditionsController {
         data: terms,
       });
     } catch (error) {
-      console.error("Error updating terms:", error);
+      console.error("❌ Error updating terms:", error);
 
       if (error instanceof ValidationError) {
         return res.status(400).json({

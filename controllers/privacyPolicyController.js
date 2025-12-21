@@ -182,6 +182,11 @@ class PrivacyPolicyController {
    * @route PUT /api/privacy-policy/:id
    * @access Admin
    */
+  /**
+   * Update an existing privacy policy version
+   * @route PUT /api/privacy-policy/:id
+   * @access Admin
+   */
   static async updateVersion(req, res) {
     try {
       const { id } = req.params;
@@ -195,9 +200,13 @@ class PrivacyPolicyController {
         isActive,
       } = req.body;
 
+      console.log("📥 Received update request for ID:", id);
+      console.log("📝 Update data:", req.body);
+
       const policy = await PrivacyPolicy.findByPk(id);
 
       if (!policy) {
+        console.error("❌ Policy not found with ID:", id);
         return res.status(404).json({
           success: false,
           message: `Privacy policy with ID ${id} not found`,
@@ -209,16 +218,25 @@ class PrivacyPolicyController {
         await PrivacyPolicy.update({ isActive: false }, { where: {} });
       }
 
+      // Prepare update object - only include fields that are provided
+      const updateData = {};
+
+      if (version !== undefined) updateData.version = version;
+      if (title !== undefined) updateData.title = title;
+      if (content !== undefined) updateData.content = content;
+      if (effectiveDate !== undefined) updateData.effectiveDate = effectiveDate;
+      if (lastModifiedBy !== undefined)
+        updateData.lastModifiedBy = lastModifiedBy;
+      if (changesSummary !== undefined)
+        updateData.changesSummary = changesSummary;
+      if (isActive !== undefined) updateData.isActive = isActive;
+
+      console.log("🔄 Updating with data:", updateData);
+
       // Update the policy
-      await policy.update({
-        ...(version && { version }),
-        ...(title && { title }),
-        ...(content && { content }),
-        ...(effectiveDate && { effectiveDate }),
-        ...(lastModifiedBy && { lastModifiedBy }),
-        ...(changesSummary !== undefined && { changesSummary }),
-        ...(isActive !== undefined && { isActive }),
-      });
+      await policy.update(updateData);
+
+      console.log("✅ Successfully updated privacy policy");
 
       return res.status(200).json({
         success: true,
@@ -226,7 +244,7 @@ class PrivacyPolicyController {
         data: policy,
       });
     } catch (error) {
-      console.error("Error updating policy:", error);
+      console.error("❌ Error updating policy:", error);
 
       if (error instanceof ValidationError) {
         return res.status(400).json({
