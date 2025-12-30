@@ -2,22 +2,9 @@ const { Profile, SocialLink, ProfileView, User } = require("../models");
 const QRCode = require("qrcode");
 const { deleteImage, cloudinary } = require("../middleware/uploadMiddleware");
 
-const generateUniqueSlug = async (name) => {
-  let slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-
-  let counter = 1;
-  let uniqueSlug = slug;
-
-  while (await Profile.findOne({ where: { slug: uniqueSlug } })) {
-    uniqueSlug = `${slug}-${counter}`;
-    counter++;
-  }
-
-  return uniqueSlug;
+// ✅ UPDATED: Generate random slug (new default method)
+const generateUniqueSlug = async () => {
+  return await Profile.generateUniqueRandomSlug(6);
 };
 
 const generateAndUploadQR = async (profileUrl, userId) => {
@@ -75,7 +62,11 @@ exports.createProfile = async (req, res) => {
     }
 
     const existingProfile = await Profile.findOne({
-      where: { userId, profileType },
+      where: {
+        userId,
+        profileType,
+        deletedAt: null, // ✅ Exclude soft-deleted profiles
+      },
     });
 
     if (existingProfile) {
@@ -85,8 +76,8 @@ exports.createProfile = async (req, res) => {
       });
     }
 
-    const slug = await generateUniqueSlug(name);
-    const profileUrl = `https://linkme.io/${slug}`;
+    const slug = await generateUniqueSlug();
+    const profileUrl = `https://linkme.io/u/${slug}`;
 
     let avatarUrl = null;
     if (req.file) {
@@ -158,7 +149,7 @@ exports.createProfile = async (req, res) => {
       designMode: designMode || "manual",
       aiPrompt: aiPrompt || null,
       aiBackground: aiBackground || null,
-      template: template || "modern",
+      template: template || "template1",
       customDesignUrl: customDesignUrl || null, // 🆕 NEW: Store custom design
       slug,
       profileUrl,
@@ -337,7 +328,7 @@ exports.updateProfile = async (req, res) => {
       aiBackground,
       template,
       isActive,
-      customDesignUrl, // 🆕 NEW: Accept custom design URL in updates
+      customDesignUrl,
     } = req.body;
 
     const profile = await Profile.findOne({
@@ -359,20 +350,13 @@ exports.updateProfile = async (req, res) => {
       avatarUrl = req.file.path;
     }
 
+    // ✅ CHANGED: Keep the same slug even if name changes
+    // Random slugs don't need to be regenerated when name changes
     let slug = profile.slug;
     let profileUrl = profile.profileUrl;
-    if (name && name !== profile.name) {
-      slug = await generateUniqueSlug(name);
-      profileUrl = `https://linkme.io/${slug}`;
 
-      const newQrCodeUrl = await generateAndUploadQR(profileUrl, userId);
-      if (newQrCodeUrl) {
-        if (profile.qrCodeUrl) {
-          await deleteImage(profile.qrCodeUrl);
-        }
-        profile.qrCodeUrl = newQrCodeUrl;
-      }
-    }
+    // No need to regenerate QR or slug when name changes
+    // The slug is random and doesn't relate to the name
 
     await profile.update({
       name: name || profile.name,
@@ -385,13 +369,12 @@ exports.updateProfile = async (req, res) => {
       aiBackground:
         aiBackground !== undefined ? aiBackground : profile.aiBackground,
       template: template || profile.template,
-      // 🆕 NEW: Update custom design URL
       customDesignUrl:
         customDesignUrl !== undefined
           ? customDesignUrl
           : profile.customDesignUrl,
-      slug,
-      profileUrl,
+      slug, // ✅ Keep existing slug
+      profileUrl, // ✅ Keep existing URL
       isActive: isActive !== undefined ? isActive : profile.isActive,
     });
 
@@ -420,6 +403,114 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+// Add this new function to profileController.js (after updateProfile)
+exports.patchProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { template, color, ...otherFields } = req.body;
+
+    // Find profile
+    const profile = await Profile.findOne({
+      where: { id, userId },
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found",
+      });
+    }
+
+    // Validate pageTemplate if provided (for public profile page)
+    if (req.body.pageTemplate !== undefined) {
+      const validPageTemplates = [
+        "luxury",
+        "pastel",
+        "modern",
+        "cosmic",
+        "minimal",
+        "glass",
+      ];
+      if (!validPageTemplates.includes(req.body.pageTemplate)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid page template. Must be one of: luxury, pastel, modern, cosmic, minimal, glass",
+        });
+      }
+    }
+
+    // Validate template if provided (for card design)
+    if (template !== undefined) {
+      const validCardTemplates = [
+        "template1",
+        "template2",
+        "template3",
+        "template4",
+        "template5",
+        "template6",
+      ];
+      if (!validCardTemplates.includes(template)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid card template. Must be one of: template1, template2, template3, template4, template5, template6",
+        });
+      }
+    }
+
+    // Validate color if provided (hex format)
+    if (color !== undefined && color !== null) {
+      if (!/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid color format. Must be hex color (e.g., #FF0000)",
+        });
+      }
+    }
+    // Prepare update object
+    const updateData = {};
+    if (template !== undefined) updateData.template = template;
+    if (req.body.pageTemplate !== undefined)
+      updateData.pageTemplate = req.body.pageTemplate;
+    if (color !== undefined) updateData.color = color;
+
+    // Add any other fields from the request
+    Object.keys(otherFields).forEach((key) => {
+      if (otherFields[key] !== undefined) {
+        updateData[key] = otherFields[key];
+      }
+    });
+
+    // Update profile
+    await profile.update(updateData);
+
+    // Fetch updated profile with social links
+    const updatedProfile = await Profile.findByPk(profile.id, {
+      include: [
+        {
+          model: SocialLink,
+          as: "socialLinks",
+          order: [["order", "ASC"]],
+        },
+      ],
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: updatedProfile,
+    });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating profile",
+      error: error.message,
+    });
+  }
+};
 exports.deleteProfile = async (req, res) => {
   try {
     const userId = req.user.id;

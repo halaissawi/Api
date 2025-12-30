@@ -66,7 +66,7 @@ module.exports = {
       cardTemplate: {
         type: Sequelize.STRING,
         allowNull: false,
-        defaultValue: "modern",
+        defaultValue: "template1",
       },
       cardDesignMode: {
         type: Sequelize.ENUM("manual", "ai"),

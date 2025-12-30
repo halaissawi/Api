@@ -10,6 +10,9 @@ const {
 const profileController = require("../controllers/profileController");
 const profileViewController = require("../controllers/profileViewController");
 
+// ✅ Import Profile model for the notification route
+const { Profile } = require("../models");
+
 // ============================================
 // 🔥 IMPORTANT: SPECIFIC ROUTES FIRST
 // ============================================
@@ -129,5 +132,55 @@ router.get(
   authMiddleware,
   profileViewController.getVisitorStats
 );
+
+// ✅ Update notification preferences - FIXED: use authMiddleware instead of authenticateToken
+router.patch("/:id/notifications", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { emailNotifications, profileViews, newContacts } = req.body;
+
+    // Verify the profile belongs to the authenticated user
+    const profile = await Profile.findOne({
+      where: {
+        id,
+        userId: req.user.id,
+      },
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found or unauthorized",
+      });
+    }
+
+    // Update notification preferences
+    const updateData = {};
+    if (emailNotifications !== undefined)
+      updateData.emailNotifications = emailNotifications;
+    if (profileViews !== undefined) updateData.profileViews = profileViews;
+    if (newContacts !== undefined) updateData.newContacts = newContacts;
+
+    await profile.update(updateData);
+
+    res.json({
+      success: true,
+      message: "Notification preferences updated successfully",
+      data: {
+        emailNotifications: profile.emailNotifications,
+        profileViews: profile.profileViews,
+        newContacts: profile.newContacts,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating notification preferences:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update notification preferences",
+      error: error.message,
+    });
+  }
+});
+router.patch("/:id", authMiddleware, profileController.patchProfile);
 
 module.exports = router;

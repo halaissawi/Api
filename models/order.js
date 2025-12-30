@@ -185,7 +185,7 @@ module.exports = (sequelize, DataTypes) => {
       cardTemplate: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: "modern",
+        defaultValue: "template1",
       },
       cardDesignMode: {
         type: DataTypes.ENUM("manual", "ai", "template", "upload", "custom"),

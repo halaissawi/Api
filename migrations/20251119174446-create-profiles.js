@@ -61,7 +61,7 @@ module.exports = {
       template: {
         type: Sequelize.STRING,
         allowNull: false,
-        defaultValue: "modern",
+        defaultValue: "template1",
       },
       slug: {
         type: Sequelize.STRING,

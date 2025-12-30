@@ -27,6 +27,14 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: "CASCADE",
         onUpdate: "CASCADE",
       });
+
+      // ✅ NEW: Has many Orders - RESTRICT deletion if orders exist
+      Profile.hasMany(models.Order, {
+        foreignKey: "profileId",
+        as: "orders",
+        onDelete: "RESTRICT",
+        onUpdate: "CASCADE",
+      });
     }
 
     // Instance method to increment view count
@@ -65,10 +73,10 @@ module.exports = (sequelize, DataTypes) => {
 
     // Instance method to generate profile URL
     generateProfileUrl() {
-      return `https://linkme.io/${this.slug}`;
+      return `https://linkme.io/u/${this.slug}`;
     }
 
-    // Static method to generate unique slug
+    // ✅ LEGACY: Name-based slug generation (kept for backward compatibility)
     static async generateUniqueSlug(name) {
       let slug = name
         .trim()
@@ -76,14 +84,82 @@ module.exports = (sequelize, DataTypes) => {
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9-]/g, "");
 
-      // Check if slug exists
-      const existingProfile = await Profile.findOne({ where: { slug } });
+      // Check if slug exists (excluding soft-deleted profiles)
+      const existingProfile = await Profile.findOne({
+        where: {
+          slug,
+          deletedAt: null,
+        },
+      });
 
       if (existingProfile) {
         // Add random number to make it unique
         const randomNum = Math.floor(Math.random() * 10000);
         slug = `${slug}-${randomNum}`;
       }
+
+      return slug;
+    }
+
+    // ✅ NEW: Generate random alphanumeric code
+    static generateRandomCode(length = 6) {
+      const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+      let code = "";
+
+      for (let i = 0; i < length; i++) {
+        code += characters.charAt(
+          Math.floor(Math.random() * characters.length)
+        );
+      }
+
+      return code;
+    }
+
+    // ✅ NEW: Generate unique random slug (PRIMARY METHOD)
+    static async generateUniqueRandomSlug(length = 6) {
+      let slug;
+      let attempts = 0;
+      const maxAttempts = 10;
+      let currentLength = length;
+
+      do {
+        slug = Profile.generateRandomCode(currentLength);
+
+        // Check if slug exists (excluding soft-deleted profiles)
+        const existingProfile = await Profile.findOne({
+          where: {
+            slug,
+            deletedAt: null,
+          },
+        });
+
+        if (!existingProfile) {
+          // Slug is unique, we can use it
+          console.log(`✅ Generated unique slug: ${slug}`);
+          break;
+        }
+
+        attempts++;
+        console.log(
+          `⚠️ Collision detected for slug: ${slug}, attempt ${attempts}`
+        );
+
+        // If too many collisions, increase length
+        if (attempts >= maxAttempts) {
+          currentLength++;
+          attempts = 0;
+          console.log(
+            `⚠️ Increasing slug length to ${currentLength} due to collisions`
+          );
+        }
+
+        // Safety limit - prevent infinite loops
+        if (currentLength > 10) {
+          throw new Error(
+            "Unable to generate unique slug after multiple attempts"
+          );
+        }
+      } while (true);
 
       return slug;
     }
@@ -192,12 +268,12 @@ module.exports = (sequelize, DataTypes) => {
         },
       },
       designMode: {
-        type: DataTypes.ENUM("manual", "ai", "custom", "template"), // ✅ Add "template"
+        type: DataTypes.ENUM("manual", "ai", "custom", "template"),
         allowNull: false,
         defaultValue: "manual",
         validate: {
           isIn: {
-            args: [["manual", "ai", "custom", "template"]], // ✅ Add "template"
+            args: [["manual", "ai", "custom", "template"]],
             msg: "Design mode must be either 'manual', 'ai', 'custom', or 'template'",
           },
         },
@@ -219,13 +295,44 @@ module.exports = (sequelize, DataTypes) => {
       template: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: "modern",
+        defaultValue: "template1",
+        comment: "Card design template (template1-6)",
       },
-      // 🆕 NEW FIELD - Custom Card Design URL
+      pageTemplate: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: "modern",
+        comment: "Public profile page template (modern, minimal, glass, etc.)",
+        validate: {
+          isIn: {
+            args: [
+              ["modern", "minimal", "glass", "luxury", "pastel", "cosmic"],
+            ],
+            msg: "Page template must be one of: modern, minimal, glass, luxury, pastel, cosmic",
+          },
+        },
+      },
+      pageColor: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: "#0EA5E9",
+        comment: "Public profile page color theme",
+        validate: {
+          is: {
+            args: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/,
+            msg: "Page color must be a valid hex color code",
+          },
+        },
+      },
       customDesignUrl: {
         type: DataTypes.TEXT,
         allowNull: true,
         comment: "URL of custom uploaded card design image",
+      },
+      deletedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: "Soft delete timestamp",
       },
       slug: {
         type: DataTypes.STRING,
@@ -275,25 +382,41 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         defaultValue: 0,
       },
+      emailNotifications: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+      },
+      profileViews: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+      },
+      newContacts: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+      },
     },
     {
       sequelize,
       modelName: "Profile",
       tableName: "Profiles",
+      paranoid: true, // ✅ Enables soft delete
       hooks: {
         beforeValidate: async (profile) => {
-          // Auto-generate slug if not provided
+          // ✅ UPDATED: Generate random slug instead of name-based
           if (!profile.slug && profile.name) {
-            profile.slug = await Profile.generateUniqueSlug(profile.name);
+            profile.slug = await Profile.generateUniqueRandomSlug(6);
+            console.log(`🔗 Auto-generated random slug: ${profile.slug}`);
           }
 
           // Auto-generate profile URL if not provided
           if (!profile.profileUrl && profile.slug) {
-            profile.profileUrl = `https://linkme.io/${profile.slug}`;
+            profile.profileUrl = `https://linkme.io/u/${profile.slug}`;
           }
         },
         afterCreate: async (profile) => {
-          console.log(`New profile created: ${profile.name} (${profile.slug})`);
+          console.log(
+            `✅ New profile created: ${profile.name} (${profile.slug})`
+          );
         },
       },
       indexes: [

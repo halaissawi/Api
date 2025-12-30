@@ -11,6 +11,12 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: "CASCADE",
         onUpdate: "CASCADE",
       });
+      User.hasMany(models.Order, {
+        foreignKey: "userId",
+        as: "orders",
+        onDelete: "RESTRICT", // Prevent user deletion if they have orders
+        onUpdate: "CASCADE",
+      });
     }
 
     async getProfiles(options = {}) {
@@ -202,10 +208,16 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      deletedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: "Soft delete timestamp",
+      },
     },
     {
       sequelize,
       modelName: "User",
+      paranoid: true,
       hooks: {
         beforeCreate: async (user) => {
           if (user.password) {
