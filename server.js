@@ -11,7 +11,7 @@ const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const termsRoutes = require("./routes/termsAndConditionsRoutes");
 const privacyRoutes = require("./routes/privacyPolicyRoutes");
 const smartCardRoutes = require("./routes/index");
-
+const aiRoutes = require("./routes/ai");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -64,7 +64,7 @@ app.use("/api", smartCardRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/terms", termsRoutes);
 app.use("/api/privacy-policy", privacyRoutes);
-
+app.use("/api/ai", aiRoutes);
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });

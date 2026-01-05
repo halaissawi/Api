@@ -131,7 +131,7 @@ const validatePassword = (password) => {
 const authController = {
   async signUp(req, res) {
     try {
-      const {
+      let {
         firstName,
         secondName,
         lastName,
@@ -141,13 +141,14 @@ const authController = {
         dateOfBirth,
       } = req.body;
 
-      // UPDATED: Only required fields
+      // Required fields validation
       if (!firstName || !lastName || !email || !password) {
         return res.status(400).json({
           message: "First name, last name, email, and password are required",
         });
       }
 
+      // Password validation
       const passwordValidation = validatePassword(password.trim());
       if (!passwordValidation.isValid) {
         return res.status(400).json({
@@ -155,7 +156,7 @@ const authController = {
         });
       }
 
-      // UPDATED: Only validate dateOfBirth if provided
+      // ✅ Date of birth validation with age check
       let dob = null;
       if (dateOfBirth && dateOfBirth.trim() !== "") {
         dob = new Date(dateOfBirth);
@@ -164,27 +165,57 @@ const authController = {
             .status(400)
             .json({ message: "Invalid date of birth format" });
         }
+
+        // Age validation
+        const today = new Date();
+        const age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+
+        const actualAge =
+          monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())
+            ? age - 1
+            : age;
+
+        if (actualAge < 13) {
+          return res.status(400).json({
+            message: "You must be at least 13 years old to register",
+          });
+        }
+
+        if (actualAge > 120) {
+          return res.status(400).json({
+            message: "Please enter a valid date of birth",
+          });
+        }
       }
 
-      // UPDATED: Only validate phoneNumber if provided
+      // ✅ Phone number validation (remove spaces)
       if (phoneNumber && phoneNumber.trim() !== "") {
-        if (!/^\+?\d{7,15}$/.test(phoneNumber)) {
+        const cleanPhone = phoneNumber.replace(/\s+/g, "");
+
+        if (!/^\+?\d{7,15}$/.test(cleanPhone)) {
           return res.status(400).json({
             message:
               "Invalid phone number format. Use digits only, optionally start with '+', length 7-15 digits.",
           });
         }
+
+        phoneNumber = cleanPhone; // Update to cleaned version
       }
 
+      // Check if user exists
       const userExists = await User.findOne({
         where: { email: email.trim() },
       });
-      if (userExists)
+      if (userExists) {
         return res.status(400).json({ message: "User already exists" });
+      }
 
+      // Generate OTP
       const otp = crypto.randomInt(100000, 999999).toString();
       const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
+      // Create user
       const user = await User.create({
         firstName: firstName.trim(),
         secondName: secondName ? secondName.trim() : null,
@@ -192,7 +223,7 @@ const authController = {
         email: email.trim(),
         password: password.trim(),
         phoneNumber:
-          phoneNumber && phoneNumber.trim() !== "" ? phoneNumber.trim() : null,
+          phoneNumber && phoneNumber.trim() !== "" ? phoneNumber : null,
         dateOfBirth: dob,
         isVerified: false,
         pendingEmail: null,
