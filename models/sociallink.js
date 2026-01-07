@@ -38,6 +38,7 @@ module.exports = (sequelize, DataTypes) => {
         whatsapp: "💬",
         email: "📧",
         phone: "📱",
+        facebook: "👤",
       };
       return icons[platform] || "🔗";
     }
@@ -109,6 +110,7 @@ module.exports = (sequelize, DataTypes) => {
           "github",
           "whatsapp",
           "email",
+          "facebook",
           "phone"
         ),
         allowNull: false,
@@ -127,6 +129,7 @@ module.exports = (sequelize, DataTypes) => {
                 "whatsapp",
                 "email",
                 "phone",
+                "facebook",
               ],
             ],
             msg: "Invalid platform type",
@@ -156,11 +159,8 @@ module.exports = (sequelize, DataTypes) => {
                 throw new Error("Invalid phone number");
               }
             } else if (this.platform === "whatsapp") {
-              // WhatsApp can be stored as URL format: https://wa.me/XXXXXXXXXXX
-              // Extract the number from the URL or validate raw number
+              // WhatsApp validation (keep as is)
               let numberToValidate = value;
-
-              // If it's a wa.me URL, extract the number
               if (value.includes("wa.me/")) {
                 const match = value.match(/wa\.me\/(\d+)/);
                 if (match && match[1]) {
@@ -169,21 +169,28 @@ module.exports = (sequelize, DataTypes) => {
                   throw new Error("Invalid WhatsApp URL format");
                 }
               }
-
-              // Remove any spaces, dashes, parentheses
               const cleanNumber = numberToValidate.replace(/[\s\-\(\)]/g, "");
-
-              // Validate: must be digits only and between 9-15 characters
               const whatsappRegex = /^\d{9,15}$/;
               if (!whatsappRegex.test(cleanNumber)) {
                 throw new Error("WhatsApp number must be 9-15 digits");
               }
             } else {
-              // Validate URL for other platforms
-              try {
-                new URL(value);
-              } catch (e) {
-                throw new Error("Invalid URL format");
+              // ✅ UPDATED: Accept both URLs and usernames for social platforms
+              // If it starts with http/https, validate as URL
+              if (value.startsWith("http://") || value.startsWith("https://")) {
+                try {
+                  new URL(value);
+                } catch (e) {
+                  throw new Error("Invalid URL format");
+                }
+              } else {
+                // Otherwise validate as username (3+ alphanumeric characters, dots, underscores, hyphens)
+                const usernameRegex = /^[a-zA-Z0-9._-]{3,}$/;
+                if (!usernameRegex.test(value)) {
+                  throw new Error(
+                    "Invalid username format (minimum 3 characters, alphanumeric, dots, underscores, hyphens allowed)"
+                  );
+                }
               }
             }
           },

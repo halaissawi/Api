@@ -6,8 +6,15 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD,
   },
+  // ✅ ADD THESE TIMEOUT SETTINGS
+  connectionTimeout: 10000, // 10 seconds to connect
+  greetingTimeout: 10000, // 10 seconds for greeting
+  socketTimeout: 10000, // 10 seconds for inactivity
+  // ✅ ADD THESE SECURITY SETTINGS
+  tls: {
+    rejectUnauthorized: false, // Accept self-signed certificates
+  },
 });
-
 /**
  * Send email using Nodemailer with Gmail
  * @param {Object} options - Email options

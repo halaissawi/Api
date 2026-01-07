@@ -65,10 +65,17 @@ exports.replyToMessage = async (req, res) => {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
+      // ✅ ADD TIMEOUTS HERE TOO
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
+      tls: {
+        rejectUnauthorized: false,
+      },
     });
 
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+      from: process.env.EMAIL_USER, // ✅ Changed from EMAIL_FROM to EMAIL_USER
       to,
       subject,
       text,
