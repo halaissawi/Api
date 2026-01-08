@@ -1,22 +1,10 @@
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-  // ✅ ADD THESE TIMEOUT SETTINGS
-  connectionTimeout: 10000, // 10 seconds to connect
-  greetingTimeout: 10000, // 10 seconds for greeting
-  socketTimeout: 10000, // 10 seconds for inactivity
-  // ✅ ADD THESE SECURITY SETTINGS
-  tls: {
-    rejectUnauthorized: false, // Accept self-signed certificates
-  },
-});
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 /**
- * Send email using Nodemailer with Gmail
+ * Send email using Resend API
  * @param {Object} options - Email options
  * @param {string|string[]} options.to - Recipient email(s)
  * @param {string} options.subject - Email subject
@@ -29,23 +17,21 @@ const sendEmail = async ({
   subject,
   html,
   text,
-  from = process.env.EMAIL_FROM || process.env.EMAIL_USER,
+  from = process.env.EMAIL_FROM || "LinkMe <onboarding@resend.dev>",
 }) => {
   try {
-    console.log("📧 Sending email via Gmail...");
+    console.log("📧 Sending email via Resend...");
 
-    const mailOptions = {
+    const data = await resend.emails.send({
       from: from,
-      to: Array.isArray(to) ? to.join(", ") : to,
+      to: Array.isArray(to) ? to : [to],
       subject,
       html,
       text,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-
-    console.log("✅ Email sent successfully:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    console.log("✅ Email sent successfully:", data.id);
+    return { success: true, messageId: data.id };
   } catch (error) {
     console.error("❌ Error sending email:", error);
     console.error("Error details:", error.message);
@@ -921,22 +907,20 @@ const sendTemplatedEmail = async (to, templateKey, ...args) => {
 };
 
 /**
- * Verify Gmail connection
+ * Verify Resend connection
  */
 const verifyEmailConnection = async () => {
   try {
-    // Check if Gmail credentials are configured
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.error("❌ EMAIL_USER or EMAIL_PASSWORD is not configured");
+    // Check if Resend API key is configured
+    if (!process.env.RESEND_API_KEY) {
+      console.error("❌ RESEND_API_KEY is not configured");
       return false;
     }
 
-    // Verify the transporter
-    await transporter.verify();
-    console.log("✅ Gmail SMTP connection verified successfully");
+    console.log("✅ Resend API configured successfully");
     return true;
   } catch (error) {
-    console.error("❌ Gmail SMTP connection failed:", error.message);
+    console.error("❌ Resend API configuration failed:", error.message);
     return false;
   }
 };

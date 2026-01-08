@@ -1,6 +1,6 @@
 const { ContactMessage } = require("../models");
-const nodemailer = require("nodemailer");
-
+const { Resend } = require("resend");
+const resend = new Resend(process.env.RESEND_API_KEY);
 exports.createMessage = async (req, res) => {
   try {
     const { name, email, message } = req.body;
@@ -59,25 +59,11 @@ exports.replyToMessage = async (req, res) => {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-      // ✅ ADD TIMEOUTS HERE TOO
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER, // ✅ Changed from EMAIL_FROM to EMAIL_USER
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM || "LinkMe <onboarding@resend.dev>",
       to,
       subject,
+      html: `<p>${text.replace(/\n/g, "<br>")}</p>`,
       text,
     });
 
