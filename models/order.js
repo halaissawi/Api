@@ -132,6 +132,11 @@ module.exports = (sequelize, DataTypes) => {
           notNull: { msg: "Profile ID is required" },
         },
       },
+      profileUrl: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: "Public profile URL for the NFC card",
+      },
 
       // Customer Information
       customerFirstName: {

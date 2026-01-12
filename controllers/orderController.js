@@ -5,6 +5,7 @@ exports.createOrder = async (req, res) => {
     const userId = req.user.id;
     const {
       profileId,
+      profileUrl,
       customerInfo,
       shippingInfo,
       cardDesign,
@@ -28,6 +29,7 @@ exports.createOrder = async (req, res) => {
     const order = await Order.create({
       userId,
       profileId,
+      profileUrl,
       customerFirstName: customerInfo.firstName,
       customerLastName: customerInfo.lastName,
       customerEmail: customerInfo.email,
