@@ -77,7 +77,7 @@ exports.createProfile = async (req, res) => {
     }
 
     const slug = await generateUniqueSlug();
-    const profileUrl = `https://linkme.io/u/${slug}`;
+    const profileUrl = `https://www.linkmejo.com/u/${slug}`;
 
     let avatarUrl = null;
     if (req.file) {

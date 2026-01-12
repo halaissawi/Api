@@ -73,9 +73,8 @@ module.exports = (sequelize, DataTypes) => {
 
     // Instance method to generate profile URL
     generateProfileUrl() {
-      return `https://linkme.io/u/${this.slug}`;
+      return `https://www.linkmejo.com/u/${this.slug}`;
     }
-
     // ✅ LEGACY: Name-based slug generation (kept for backward compatibility)
     static async generateUniqueSlug(name) {
       let slug = name
@@ -410,7 +409,7 @@ module.exports = (sequelize, DataTypes) => {
 
           // Auto-generate profile URL if not provided
           if (!profile.profileUrl && profile.slug) {
-            profile.profileUrl = `https://linkme.io/u/${profile.slug}`;
+            profile.profileUrl = `https://www.linkmejo.com/u/${profile.slug}`;
           }
         },
         afterCreate: async (profile) => {
