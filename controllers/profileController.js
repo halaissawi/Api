@@ -181,6 +181,9 @@ exports.createProfile = async (req, res) => {
       }
     }
 
+    // Parse productId properly
+    const finalProductId = (productId && productId !== 'undefined' && productId !== 'null') ? parseInt(productId) : null;
+
     // Create profile
     const profile = await Profile.create({
       userId,
@@ -200,7 +203,7 @@ exports.createProfile = async (req, res) => {
       skills: parsedSkills || null,
       experience: parsedExperience || null,
       education: parsedEducation || null,
-      productId: productId || null,
+      productId: finalProductId,
       slug,
       profileUrl,
       qrCodeUrl,
@@ -301,6 +304,11 @@ exports.getProfileById = async (req, res) => {
           model: SocialLink,
           as: "socialLinks",
           order: [["order", "ASC"]],
+        },
+        {
+          model: Product,
+          as: "product",
+          attributes: ["id", "name", "category", "image", "productType"],
         },
       ],
     });

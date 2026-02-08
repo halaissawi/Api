@@ -77,6 +77,21 @@ const fileFilter = (req, file, cb) => {
   cb(null, true);
 };
 
+// ==================== MENU IMAGES STORAGE ====================
+const menuStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "linkme/menus",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    public_id: (req, file) => {
+      const userId = req.user.id;
+      const timestamp = Date.now();
+      const type = file.fieldname;
+      return `${type}_${userId}_${timestamp}`;
+    },
+  },
+});
+
 // ==================== MULTER INSTANCES ====================
 const uploadProfile = multer({
   storage: profileStorage,
@@ -102,13 +117,21 @@ const uploadBackground = multer({
   },
 });
 
+const uploadMenu = multer({
+  storage: menuStorage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});
+
 // ==================== ERROR HANDLER MIDDLEWARE ====================
 const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({
         success: false,
-        message: "File size is too large. Maximum size is 5MB for profiles.",
+        message: "File size is too large. Maximum size is 5MB.",
       });
     }
     return res.status(400).json({
@@ -151,6 +174,9 @@ module.exports = {
   uploadQR: uploadQR.single("qrCode"),
   uploadBackground: uploadBackground.single("background"),
   uploadMultiple: uploadProfile.array("images", 5),
+  uploadMenuLogo: uploadMenu.single("logo"),
+  uploadMenuCover: uploadMenu.single("coverImage"),
+  uploadMenuItem: uploadMenu.single("image"),
   handleUploadError,
   deleteImage,
   cloudinary,

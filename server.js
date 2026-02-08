@@ -13,7 +13,12 @@ const privacyRoutes = require("./routes/privacyPolicyRoutes");
 const smartCardRoutes = require("./routes/index");
 const aiRoutes = require("./routes/aiRoutes");
 const app = express();
-const { sequelize } = require("./models");
+const { sequelize, Menu } = require("./models");
+
+// Sync Menu model
+Menu.sync({ alter: true })
+  .then(() => console.log("Menu table verified/synced"))
+  .catch(err => console.error("Error syncing Menu table:", err));
 
 // Hotfix: Ensure isPaid column exists
 sequelize.query("ALTER TABLE user_products ADD COLUMN IF NOT EXISTS \"isPaid\" BOOLEAN DEFAULT FALSE;")
@@ -81,6 +86,7 @@ app.use("/api/privacy-policy", privacyRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/user-products", userProductRoutes);
+app.use("/api/upload", require("./routes/uploadRoutes"));
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });

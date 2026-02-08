@@ -7,6 +7,7 @@ const analyticsRoutes = require("./analyticsRoutes");
 const dashboardRoutes = require("./dashboardRoutes");
 const adminDashboardRoutes = require("./adminDashboardRoutes");
 const orderRoutes = require("./orderRoutes");
+const menuRoutes = require("./menuRoutes");
 
 router.use("/profiles", profileRoutes);
 router.use("/social-links", socialLinkRoutes);
@@ -14,6 +15,8 @@ router.use("/analytics", analyticsRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/admin/dashboard", adminDashboardRoutes);
 router.use("/orders", orderRoutes);
+router.use("/menus", menuRoutes);
+router.use("/menu", menuRoutes); // Support singular /menu/:slug as requested
 
 router.get("/", (req, res) => {
   res.status(200).json({
