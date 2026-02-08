@@ -11,9 +11,23 @@ const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const termsRoutes = require("./routes/termsAndConditionsRoutes");
 const privacyRoutes = require("./routes/privacyPolicyRoutes");
 const smartCardRoutes = require("./routes/index");
-const aiRoutes = require("./routes/ai");
+const aiRoutes = require("./routes/aiRoutes");
 const app = express();
+const { sequelize } = require("./models");
+
+// Hotfix: Ensure isPaid column exists
+sequelize.query("ALTER TABLE user_products ADD COLUMN IF NOT EXISTS \"isPaid\" BOOLEAN DEFAULT FALSE;")
+  .then(() => console.log("Database column 'isPaid' verified/added"))
+  .catch(err => console.error("Error verifying 'isPaid' column:", err));
+
+// Hotfix: Ensure productId exists in Profiles
+sequelize.query("ALTER TABLE \"Profiles\" ADD COLUMN IF NOT EXISTS \"productId\" INTEGER;")
+  .then(() => console.log("Database column 'productId' verified/added to Profiles"))
+  .catch(err => console.error("Error verifying 'productId' column in Profiles:", err));
+
 const PORT = process.env.PORT || 3000;
+const productRoutes = require("./routes/productRoutes");
+const userProductRoutes = require("./routes/userProductRoutes");
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -51,7 +65,7 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000,
     },
-  })
+  }),
 );
 
 app.use(passport.initialize());
@@ -65,6 +79,8 @@ app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/terms", termsRoutes);
 app.use("/api/privacy-policy", privacyRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/user-products", userProductRoutes);
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });

@@ -25,6 +25,42 @@ router.get("/google/callback", authController.googleAuthCallback);
 
 router.get("/facebook", authController.facebookAuth);
 router.get("/facebook/callback", authController.facebookAuthCallback);
+// Add this BEFORE the delete-account route
+
+// ✅ Get current user info
+router.get("/me", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ["password", "otp", "otpExpires"] },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      secondName: user.secondName,
+      lastName: user.lastName,
+      phoneNumber: user.phoneNumber,
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+    });
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user data",
+      error: error.message,
+    });
+  }
+});
 
 // ✅ Delete account - FIXED: use authMiddleware and proper imports
 router.delete("/delete-account", authMiddleware, async (req, res) => {
@@ -54,7 +90,7 @@ router.delete("/delete-account", authMiddleware, async (req, res) => {
     }
 
     console.log(
-      `🗑️ Soft deleting account for user: ${user.email} (ID: ${userId})`
+      `🗑️ Soft deleting account for user: ${user.email} (ID: ${userId})`,
     );
 
     // Get all profiles for this user
@@ -76,7 +112,7 @@ router.delete("/delete-account", authMiddleware, async (req, res) => {
       {
         where: { userId },
         transaction,
-      }
+      },
     );
 
     // Soft delete the user

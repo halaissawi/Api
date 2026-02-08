@@ -1,4 +1,4 @@
-const { Profile, SocialLink, ProfileView, User } = require("../models");
+const { Profile, SocialLink, ProfileView, User, Product } = require("../models");
 const QRCode = require("qrcode");
 const { deleteImage, cloudinary } = require("../middleware/uploadMiddleware");
 
@@ -26,7 +26,7 @@ const generateAndUploadQR = async (profileUrl, userId) => {
         (error, result) => {
           if (error) reject(error);
           else resolve(result.secure_url);
-        }
+        },
       );
 
       uploadStream.end(qrBuffer);
@@ -51,8 +51,52 @@ exports.createProfile = async (req, res) => {
       aiBackground,
       template,
       socialLinks,
-      customDesignUrl, // 🆕 NEW: Accept custom design URL
+      customDesignUrl,
+      // 🆕 AI Profile fields
+      customProfileDesign,
+      skills,
+      experience,
+      education,
+      productId,
     } = req.body;
+
+    // 🆕 Parse AI profile JSON fields if they're strings
+    let parsedCustomProfileDesign = customProfileDesign;
+    let parsedSkills = skills;
+    let parsedExperience = experience;
+    let parsedEducation = education;
+
+    if (customProfileDesign && typeof customProfileDesign === "string") {
+      try {
+        parsedCustomProfileDesign = JSON.parse(customProfileDesign);
+      } catch (e) {
+        console.error("Failed to parse customProfileDesign:", e);
+      }
+    }
+
+    if (skills && typeof skills === "string") {
+      try {
+        parsedSkills = JSON.parse(skills);
+      } catch (e) {
+        console.error("Failed to parse skills:", e);
+      }
+    }
+
+    if (experience && typeof experience === "string") {
+      try {
+        parsedExperience = JSON.parse(experience);
+      } catch (e) {
+        console.error("Failed to parse experience:", e);
+      }
+    }
+
+    if (education && typeof education === "string") {
+      try {
+        parsedEducation = JSON.parse(education);
+      } catch (e) {
+        console.error("Failed to parse education:", e);
+      }
+    }
 
     if (!name || !profileType) {
       return res.status(400).json({
@@ -65,7 +109,7 @@ exports.createProfile = async (req, res) => {
       where: {
         userId,
         profileType,
-        deletedAt: null, // ✅ Exclude soft-deleted profiles
+        deletedAt: null,
       },
     });
 
@@ -150,7 +194,13 @@ exports.createProfile = async (req, res) => {
       aiPrompt: aiPrompt || null,
       aiBackground: aiBackground || null,
       template: template || "template1",
-      customDesignUrl: customDesignUrl || null, // 🆕 NEW: Store custom design
+      customDesignUrl: customDesignUrl || null,
+      // 🆕 AI Profile fields
+      customProfileDesign: parsedCustomProfileDesign || null,
+      skills: parsedSkills || null,
+      experience: parsedExperience || null,
+      education: parsedEducation || null,
+      productId: productId || null,
       slug,
       profileUrl,
       qrCodeUrl,
@@ -214,6 +264,11 @@ exports.getUserProfiles = async (req, res) => {
           model: SocialLink,
           as: "socialLinks",
           order: [["order", "ASC"]],
+        },
+        {
+          model: Product,
+          as: "product",
+          attributes: ["id", "name", "category", "image", "productType"],
         },
       ],
       order: [["createdAt", "DESC"]],
@@ -329,7 +384,49 @@ exports.updateProfile = async (req, res) => {
       template,
       isActive,
       customDesignUrl,
+      // 🆕 ADD THESE
+      customProfileDesign,
+      skills,
+      experience,
+      education,
     } = req.body;
+
+    let parsedCustomProfileDesign = customProfileDesign;
+    let parsedSkills = skills;
+    let parsedExperience = experience;
+    let parsedEducation = education;
+
+    if (customProfileDesign && typeof customProfileDesign === "string") {
+      try {
+        parsedCustomProfileDesign = JSON.parse(customProfileDesign);
+      } catch (e) {
+        console.error("Failed to parse customProfileDesign:", e);
+      }
+    }
+
+    if (skills && typeof skills === "string") {
+      try {
+        parsedSkills = JSON.parse(skills);
+      } catch (e) {
+        console.error("Failed to parse skills:", e);
+      }
+    }
+
+    if (experience && typeof experience === "string") {
+      try {
+        parsedExperience = JSON.parse(experience);
+      } catch (e) {
+        console.error("Failed to parse experience:", e);
+      }
+    }
+
+    if (education && typeof education === "string") {
+      try {
+        parsedEducation = JSON.parse(education);
+      } catch (e) {
+        console.error("Failed to parse education:", e);
+      }
+    }
 
     const profile = await Profile.findOne({
       where: { id, userId },
@@ -763,7 +860,7 @@ exports.getProfileAnalytics = async (req, res) => {
 
     const viewsOverTime = await ProfileView.getViewsOverTime(
       profile.id,
-      parseInt(days)
+      parseInt(days),
     );
 
     const socialLinks = await SocialLink.findAll({

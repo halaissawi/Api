@@ -28,12 +28,17 @@ module.exports = (sequelize, DataTypes) => {
         onUpdate: "CASCADE",
       });
 
-      // ✅ NEW: Has many Orders - RESTRICT deletion if orders exist
       Profile.hasMany(models.Order, {
         foreignKey: "profileId",
         as: "orders",
         onDelete: "RESTRICT",
         onUpdate: "CASCADE",
+      });
+
+      // ✅ NEW: Belongs to Product
+      Profile.belongsTo(models.Product, {
+        foreignKey: "productId",
+        as: "product",
       });
     }
 
@@ -107,7 +112,7 @@ module.exports = (sequelize, DataTypes) => {
 
       for (let i = 0; i < length; i++) {
         code += characters.charAt(
-          Math.floor(Math.random() * characters.length)
+          Math.floor(Math.random() * characters.length),
         );
       }
 
@@ -140,7 +145,7 @@ module.exports = (sequelize, DataTypes) => {
 
         attempts++;
         console.log(
-          `⚠️ Collision detected for slug: ${slug}, attempt ${attempts}`
+          `⚠️ Collision detected for slug: ${slug}, attempt ${attempts}`,
         );
 
         // If too many collisions, increase length
@@ -148,14 +153,14 @@ module.exports = (sequelize, DataTypes) => {
           currentLength++;
           attempts = 0;
           console.log(
-            `⚠️ Increasing slug length to ${currentLength} due to collisions`
+            `⚠️ Increasing slug length to ${currentLength} due to collisions`,
           );
         }
 
         // Safety limit - prevent infinite loops
         if (currentLength > 10) {
           throw new Error(
-            "Unable to generate unique slug after multiple attempts"
+            "Unable to generate unique slug after multiple attempts",
           );
         }
       } while (true);
@@ -393,6 +398,26 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
       },
+      customProfileDesign: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+      skills: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+      experience: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+      education: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+      productId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
     },
     {
       sequelize,
@@ -414,7 +439,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         afterCreate: async (profile) => {
           console.log(
-            `✅ New profile created: ${profile.name} (${profile.slug})`
+            `✅ New profile created: ${profile.name} (${profile.slug})`,
           );
         },
       },
@@ -430,7 +455,7 @@ module.exports = (sequelize, DataTypes) => {
           fields: ["profileType"],
         },
       ],
-    }
+    },
   );
 
   return Profile;
