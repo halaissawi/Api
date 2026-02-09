@@ -14,6 +14,7 @@ const smartCardRoutes = require("./routes/index");
 const aiRoutes = require("./routes/aiRoutes");
 const app = express();
 const { sequelize, Menu } = require("./models");
+const orderRoutes = require("./routes/orderRoutes");
 
 // Sync Menu model
 Menu.sync({ alter: true })
@@ -87,6 +88,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/user-products", userProductRoutes);
 app.use("/api/upload", require("./routes/uploadRoutes"));
+app.use("/api/orders", orderRoutes);
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });

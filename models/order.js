@@ -12,7 +12,15 @@ module.exports = (sequelize, DataTypes) => {
         onUpdate: "CASCADE",
       });
 
-      // Belongs to Profile (the card they're ordering)
+      // ✅ NEW: Has many OrderItems
+      Order.hasMany(models.OrderItem, {
+        foreignKey: "orderId",
+        as: "items",
+        onDelete: "CASCADE",
+        onUpdate: "CASCADE",
+      });
+
+      // ✅ CHANGED: Profile is now optional (for backward compatibility)
       Order.belongsTo(models.Profile, {
         foreignKey: "profileId",
         as: "profile",
@@ -46,58 +54,12 @@ module.exports = (sequelize, DataTypes) => {
             attributes: ["id", "firstName", "lastName", "email", "phoneNumber"],
           },
           {
-            model: sequelize.models.Profile,
-            as: "profile",
-            attributes: [
-              "id",
-              "name",
-              "profileType",
-              "avatarUrl",
-              "color",
-              "template",
-              "designMode",
-              "aiBackground",
-            ],
+            model: sequelize.models.OrderItem,
+            as: "items",
           },
         ],
         order: [["createdAt", "DESC"]],
       });
-    }
-
-    // Get formatted order details
-    get formattedDetails() {
-      return {
-        orderId: this.orderNumber,
-        customer: {
-          name: `${this.customerFirstName} ${this.customerLastName}`,
-          email: this.customerEmail,
-          phone: this.customerPhone,
-        },
-        card: {
-          type: this.cardType,
-          design: {
-            color: this.cardColor,
-            template: this.cardTemplate,
-            designMode: this.cardDesignMode,
-            aiBackground: this.cardAiBackground,
-          },
-        },
-        shipping: {
-          address: this.shippingAddress,
-          city: this.shippingCity,
-          country: this.shippingCountry,
-        },
-        payment: {
-          method: this.paymentMethod,
-          amount: this.totalAmount,
-        },
-        status: this.orderStatus,
-        dates: {
-          ordered: this.createdAt,
-          shipped: this.shippedAt,
-          delivered: this.deliveredAt,
-        },
-      };
     }
   }
 
@@ -125,63 +87,42 @@ module.exports = (sequelize, DataTypes) => {
           notNull: { msg: "User ID is required" },
         },
       },
+      
+      // ✅ CHANGED: Made optional for multi-item orders
       profileId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
-        validate: {
-          notNull: { msg: "Profile ID is required" },
-        },
+        allowNull: true, // Changed from false to true
       },
       profileUrl: {
         type: DataTypes.STRING,
         allowNull: true,
-        comment: "Public profile URL for the NFC card",
       },
 
       // Customer Information
       customerFirstName: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notNull: { msg: "First name is required" },
-          notEmpty: { msg: "First name cannot be empty" },
-        },
       },
       customerLastName: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notNull: { msg: "Last name is required" },
-          notEmpty: { msg: "Last name cannot be empty" },
-        },
       },
       customerEmail: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
-          notNull: { msg: "Email is required" },
           isEmail: { msg: "Must be a valid email address" },
         },
       },
       customerPhone: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notNull: { msg: "Phone number is required" },
-          notEmpty: { msg: "Phone number cannot be empty" },
-        },
       },
 
-      // Card Design Details (snapshot at time of order)
+      // ✅ CHANGED: Made optional (moved to OrderItem level)
       cardType: {
         type: DataTypes.ENUM("personal", "business"),
-        allowNull: false,
-        validate: {
-          isIn: {
-            args: [["personal", "business"]],
-            msg: "Card type must be either 'personal' or 'business'",
-          },
-        },
+        allowNull: true, // Changed from false to true
       },
       cardColor: {
         type: DataTypes.STRING,
@@ -189,40 +130,29 @@ module.exports = (sequelize, DataTypes) => {
       },
       cardTemplate: {
         type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: "template1",
+        allowNull: true, // Changed from false to true
       },
       cardDesignMode: {
         type: DataTypes.ENUM("manual", "ai", "template", "upload", "custom"),
-        allowNull: false,
-        defaultValue: "manual",
+        allowNull: true, // Changed from false to true
       },
       cardAiBackground: {
         type: DataTypes.TEXT,
         allowNull: true,
       },
       customDesignUrl: {
-        // 🆕 ADD THIS
         type: DataTypes.TEXT,
         allowNull: true,
-        comment: "User-uploaded custom design image (base64 or URL)",
       },
 
       // Shipping Information
       shippingAddress: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notNull: { msg: "Shipping address is required" },
-          notEmpty: { msg: "Shipping address cannot be empty" },
-        },
       },
       shippingCity: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          notNull: { msg: "City is required" },
-        },
       },
       shippingCountry: {
         type: DataTypes.STRING,
@@ -239,20 +169,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.ENUM("cash_on_delivery", "online"),
         allowNull: false,
         defaultValue: "cash_on_delivery",
-        validate: {
-          isIn: {
-            args: [["cash_on_delivery", "online"]],
-            msg: "Payment method must be either 'cash_on_delivery' or 'online'",
-          },
-        },
       },
       totalAmount: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
         defaultValue: 0.0,
-        validate: {
-          min: { args: [0], msg: "Total amount must be positive" },
-        },
       },
 
       // Order Status
@@ -267,24 +188,9 @@ module.exports = (sequelize, DataTypes) => {
         ),
         allowNull: false,
         defaultValue: "pending",
-        validate: {
-          isIn: {
-            args: [
-              [
-                "pending",
-                "confirmed",
-                "processing",
-                "shipped",
-                "delivered",
-                "cancelled",
-              ],
-            ],
-            msg: "Invalid order status",
-          },
-        },
       },
 
-      // Timestamps for status changes
+      // Timestamps
       shippedAt: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -307,34 +213,20 @@ module.exports = (sequelize, DataTypes) => {
       timestamps: true,
       hooks: {
         beforeValidate: async (order) => {
-          // Generate unique order number if not provided
+          // Generate unique order number
           if (!order.orderNumber) {
             const timestamp = Date.now();
-            const random = Math.floor(Math.random() * 1000);
+            const random = Math.floor(Math.random() * 10000);
             order.orderNumber = `ORD-${timestamp}-${random}`;
           }
         },
-        afterCreate: async (order) => {
-          console.log(`New order created: ${order.orderNumber}`);
-        },
       },
       indexes: [
-        {
-          fields: ["userId"],
-        },
-        {
-          fields: ["profileId"],
-        },
-        {
-          unique: true,
-          fields: ["orderNumber"],
-        },
-        {
-          fields: ["orderStatus"],
-        },
-        {
-          fields: ["createdAt"],
-        },
+        { fields: ["userId"] },
+        { fields: ["profileId"] },
+        { unique: true, fields: ["orderNumber"] },
+        { fields: ["orderStatus"] },
+        { fields: ["createdAt"] },
       ],
     }
   );

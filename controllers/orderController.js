@@ -1,78 +1,159 @@
-const { Order, User, Profile } = require("../models");
+const { Order, OrderItem, User, Profile, Product, UserProduct } = require("../models");
+const { Sequelize } = require("sequelize");
+
+// ==================== USER ENDPOINTS ====================
 
 exports.createOrder = async (req, res) => {
+  const transaction = await require("../models").sequelize.transaction();
+  
   try {
     const userId = req.user.id;
-    const {
-      profileId,
-      profileUrl,
-      customerInfo,
-      shippingInfo,
-      cardDesign,
-      paymentMethod,
-      totalAmount,
-    } = req.body;
+    const { items, customerInfo, shippingInfo, paymentMethod, totalAmount } = req.body;
 
-    // Validate profile exists and belongs to user
-    const profile = await Profile.findOne({
-      where: { id: profileId, userId },
-    });
-
-    if (!profile) {
-      return res.status(404).json({
+    // Validate items array
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      await transaction.rollback();
+      return res.status(400).json({
         success: false,
-        message: "Profile not found or does not belong to you",
+        message: "Order must contain at least one item",
       });
     }
 
-    // Create order
-    const order = await Order.create({
-      userId,
-      profileId,
-      profileUrl,
-      customerFirstName: customerInfo.firstName,
-      customerLastName: customerInfo.lastName,
-      customerEmail: customerInfo.email,
-      customerPhone: customerInfo.phone,
-      shippingAddress: shippingInfo.address,
-      shippingCity: shippingInfo.city,
-      shippingCountry: shippingInfo.country || "Jordan",
-      shippingNotes: shippingInfo.notes,
-      cardType: profile.profileType,
-      cardColor: cardDesign.color || profile.color,
-      cardTemplate: cardDesign.template || profile.template,
-      cardDesignMode: cardDesign.designMode || profile.designMode,
-      cardAiBackground: cardDesign.aiBackground || profile.aiBackground,
-      customDesignUrl:
-        cardDesign.uploadedImage || profile.customDesignUrl || null,
-      paymentMethod: paymentMethod || "cash_on_delivery",
-      totalAmount: totalAmount || 0,
-      orderStatus: "pending",
-    });
+    console.log("📦 Creating order for user:", userId);
+    console.log("📦 Items:", items.length);
 
-    // Fetch order with relations
-    const orderWithDetails = await Order.findByPk(order.id, {
+    // Create the order
+    const order = await Order.create(
+      {
+        userId,
+        customerFirstName: customerInfo.firstName,
+        customerLastName: customerInfo.lastName,
+        customerEmail: customerInfo.email,
+        customerPhone: customerInfo.phone,
+        shippingAddress: shippingInfo.address,
+        shippingCity: shippingInfo.city,
+        shippingCountry: shippingInfo.country || "Jordan",
+        shippingNotes: shippingInfo.notes || null,
+        paymentMethod: paymentMethod || "cash_on_delivery",
+        totalAmount: totalAmount || 0,
+        orderStatus: "pending",
+      },
+      { transaction }
+    );
+
+    console.log("✅ Order created:", order.orderNumber);
+
+    // Process each item
+    const orderItems = [];
+    for (const item of items) {
+      let userProductId = null;
+      let profileId = null;
+      let itemStatus = "pending";
+
+      // ===== DIGITAL PRODUCTS (social_link, menu, review) =====
+      if (["social_link", "menu", "review"].includes(item.productType)) {
+        console.log(`🔷 Processing digital product: ${item.productName}`);
+
+        try {
+          // 1. Purchase the digital product
+          const purchaseRes = await UserProduct.create(
+            {
+              userId,
+              productId: item.productId,
+              productType: item.productType,
+              nickname: item.setupData?.nickname || item.productName,
+              isPaid: true,
+              setupComplete: !!item.setupData?.url,
+              profileData: item.setupData ? {
+                url: item.setupData.url,
+                platform: item.setupData.platform,
+                googleReviewUrl: item.productType === "review" ? item.setupData.url : undefined,
+              } : {},
+            },
+            { transaction }
+          );
+
+          userProductId = purchaseRes.id;
+          itemStatus = item.setupData?.url ? "activated" : "pending";
+
+          console.log(`✅ Digital product activated: ${userProductId}`);
+        } catch (err) {
+          console.error(`❌ Failed to activate digital product:`, err);
+          // Continue with order but mark as pending
+        }
+      }
+      
+      // ===== PHYSICAL PRODUCTS (profile cards, accessories) =====
+      else if (item.productType === "profile" || item.profileId) {
+        console.log(`📦 Processing physical product: ${item.productName}`);
+        profileId = item.profileId;
+        itemStatus = "manufacturing";
+      }
+
+      // Create order item record
+      const orderItem = await OrderItem.create(
+        {
+          orderId: order.id,
+          productId: item.productId,
+          profileId,
+          userProductId,
+          productName: item.productName,
+          productType: item.productType,
+          productCategory: item.productCategory,
+          image: item.image,
+          quantity: item.quantity || 1,
+          price: item.price || 0,
+          subtotal: (item.quantity || 1) * (item.price || 0),
+          setupData: item.setupData || null,
+          cardDesign: item.cardDesign || null,
+          itemStatus,
+        },
+        { transaction }
+      );
+
+      orderItems.push(orderItem);
+    }
+
+    await transaction.commit();
+
+    // Fetch complete order with items
+    const completeOrder = await Order.findByPk(order.id, {
       include: [
         {
-          model: User,
-          as: "user",
-          attributes: ["id", "firstName", "lastName", "email"],
-        },
-        {
-          model: Profile,
-          as: "profile",
-          attributes: ["id", "name", "profileType", "avatarUrl"],
+          model: OrderItem,
+          as: "items",
+          include: [
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "name", "image", "productType"],
+            },
+            {
+              model: Profile,
+              as: "profile",
+              attributes: ["id", "name", "avatarUrl"],
+            },
+            {
+              model: UserProduct,
+              as: "userProduct",
+              attributes: ["id", "nickname", "setupComplete"],
+            },
+          ],
         },
       ],
     });
 
+    console.log("🎉 Order completed successfully:", order.orderNumber);
+
     res.status(201).json({
       success: true,
       message: "Order created successfully",
-      data: orderWithDetails,
+      orderNumber: order.orderNumber,
+      data: completeOrder,
     });
   } catch (error) {
-    console.error("Error creating order:", error);
+    await transaction.rollback();
+    console.error("❌ Error creating order:", error);
     res.status(500).json({
       success: false,
       message: "Failed to create order",
@@ -89,15 +170,19 @@ exports.getUserOrders = async (req, res) => {
       where: { userId },
       include: [
         {
-          model: Profile,
-          as: "profile",
-          attributes: [
-            "id",
-            "name",
-            "profileType",
-            "avatarUrl",
-            "color",
-            "template",
+          model: OrderItem,
+          as: "items",
+          include: [
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "name", "image", "productType"],
+            },
+            {
+              model: Profile,
+              as: "profile",
+              attributes: ["id", "name", "avatarUrl"],
+            },
           ],
         },
       ],
@@ -127,19 +212,24 @@ exports.getOrderById = async (req, res) => {
       where: { id: orderId, userId },
       include: [
         {
-          model: Profile,
-          as: "profile",
-          attributes: [
-            "id",
-            "name",
-            "title",
-            "bio",
-            "profileType",
-            "avatarUrl",
-            "color",
-            "template",
-            "designMode",
-            "aiBackground",
+          model: OrderItem,
+          as: "items",
+          include: [
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "name", "image", "productType"],
+            },
+            {
+              model: Profile,
+              as: "profile",
+              attributes: ["id", "name", "avatarUrl", "color", "template"],
+            },
+            {
+              model: UserProduct,
+              as: "userProduct",
+              attributes: ["id", "nickname", "setupComplete", "profileData"],
+            },
           ],
         },
       ],
@@ -168,11 +258,9 @@ exports.getOrderById = async (req, res) => {
 
 // ==================== ADMIN ENDPOINTS ====================
 
-// Get all orders (Admin only)
 exports.getAllOrders = async (req, res) => {
   try {
     const { status, limit = 50, offset = 0 } = req.query;
-
     const whereClause = status ? { orderStatus: status } : {};
 
     const orders = await Order.findAndCountAll({
@@ -184,15 +272,14 @@ exports.getAllOrders = async (req, res) => {
           attributes: ["id", "firstName", "lastName", "email", "phoneNumber"],
         },
         {
-          model: Profile,
-          as: "profile",
-          attributes: [
-            "id",
-            "name",
-            "profileType",
-            "avatarUrl",
-            "color",
-            "template",
+          model: OrderItem,
+          as: "items",
+          include: [
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "name", "image"],
+            },
           ],
         },
       ],
@@ -220,14 +307,12 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
-// Update order status (Admin only)
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status, adminNotes } = req.body;
 
     const order = await Order.findByPk(orderId);
-
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -235,27 +320,22 @@ exports.updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Update status
     await order.updateStatus(status);
-
-    // Update admin notes if provided
     if (adminNotes !== undefined) {
       order.adminNotes = adminNotes;
       await order.save();
     }
 
-    // Fetch updated order with relations
     const updatedOrder = await Order.findByPk(orderId, {
       include: [
         {
           model: User,
           as: "user",
-          attributes: ["id", "firstName", "lastName", "email", "phoneNumber"],
+          attributes: ["id", "firstName", "lastName", "email"],
         },
         {
-          model: Profile,
-          as: "profile",
-          attributes: ["id", "name", "profileType", "avatarUrl"],
+          model: OrderItem,
+          as: "items",
         },
       ],
     });
@@ -275,12 +355,8 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-// Get order statistics (Admin only)
 exports.getOrderStatistics = async (req, res) => {
   try {
-    const { Sequelize } = require("sequelize");
-
-    // Count orders by status
     const ordersByStatus = await Order.findAll({
       attributes: [
         "orderStatus",
@@ -290,27 +366,20 @@ exports.getOrderStatistics = async (req, res) => {
       raw: true,
     });
 
-    // Total revenue
     const totalRevenue = await Order.sum("totalAmount", {
-      where: {
-        orderStatus: ["delivered"],
-      },
+      where: { orderStatus: ["delivered"] },
     });
 
-    // Orders this month
     const currentMonth = new Date();
     currentMonth.setDate(1);
     currentMonth.setHours(0, 0, 0, 0);
 
     const ordersThisMonth = await Order.count({
       where: {
-        createdAt: {
-          [Sequelize.Op.gte]: currentMonth,
-        },
+        createdAt: { [Sequelize.Op.gte]: currentMonth },
       },
     });
 
-    // Recent orders
     const recentOrders = await Order.findAll({
       limit: 10,
       order: [["createdAt", "DESC"]],
@@ -319,6 +388,10 @@ exports.getOrderStatistics = async (req, res) => {
           model: User,
           as: "user",
           attributes: ["firstName", "lastName", "email"],
+        },
+        {
+          model: OrderItem,
+          as: "items",
         },
       ],
     });
@@ -342,11 +415,9 @@ exports.getOrderStatistics = async (req, res) => {
   }
 };
 
-// Delete order (Admin only - use with caution)
 exports.deleteOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-
     const order = await Order.findByPk(orderId);
 
     if (!order) {
